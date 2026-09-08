@@ -1,0 +1,13 @@
+{
+  "schema": "hurc-complete-e2e-runtime/v1",
+  "description": "CLI adapter so cc-wf-studio consumer compile surfaces the prove entry.",
+  "adapters": [
+    {
+      "id": "cc-wf-studio-consumer-cli",
+      "kind": "cli",
+      "surface_kind": "cli",
+      "timeout_sec": 300,
+      "argv": ["python3", "scripts/complete-e2e/list-surfaces.py"]
+    }
+  ]
+}
