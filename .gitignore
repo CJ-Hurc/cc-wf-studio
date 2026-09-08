@@ -41,3 +41,6 @@ poc/
 # Temporary files
 *.tmp
 *.swp
+
+# Complete-e2e harness local state
+.hurc-harness/
