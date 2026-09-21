@@ -1,6 +1,6 @@
 {
   "schema": "hurc-complete-e2e-runtime/v1",
-  "description": "Runtime adapter: KIND_PACKS cli + nested packages/vscode contributes; product sandbox_ui_url :7788 hosts command-fault-matrix for openEditor and vscode_view (capability:vscode-extension) activation/render/failure-state.",
+  "description": "Runtime adapter: KIND_PACKS cli + nested packages/vscode contributes; product sandbox_ui_url :7788 hosts command-fault-matrix for openEditor and vscode_view (capability:vscode-extension). Occupancy stem page-error-free.sh autoruns vscode-command-pack + vscode-view-pack so fresh walks do not bind stale identity-less missing-control receipts.",
   "adapters": [
     {
       "id": "cc-wf-studio-consumer-cli",
