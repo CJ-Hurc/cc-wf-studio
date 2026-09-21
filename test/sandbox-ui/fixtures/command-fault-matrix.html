@@ -2,16 +2,17 @@
 <html lang="en"><head><meta charset="utf-8"/><title>CE2E Command Fault Matrix — cc-wf-studio</title>
 <style>
 body{font:14px system-ui;margin:16px;background:#111;color:#ddd}
-#grid{display:flex;flex-wrap:wrap;gap:8px}
+#grid,#view-fault-grid,#view-render-grid,#view-pack-grid{display:flex;flex-wrap:wrap;gap:8px}
 .pc-btn{padding:6px 10px;border:1px solid #666;border-radius:6px;background:#222;color:#eee;cursor:pointer}
 #ce2e-error{display:none;margin:12px 0;padding:10px;border:1px solid #f66;background:#3a1515;color:#fcc}
 #ce2e-error.is-visible{display:block}
 #ledger{font-family:ui-monospace,monospace;font-size:12px;padding:6px 8px;background:#0a3;color:#fff;border-radius:4px}
+.pc-view{margin:12px 0;padding:10px;border:1px solid #456;border-radius:6px;background:#1a1a22}
 </style></head>
 <body data-ce2e-fixture="command-fault-matrix">
-<h1>cc-wf-studio command fault matrix</h1>
-<p>Fault clicks: visible error + sentinel unchanged. Exec: sentinel intact.</p>
-<p id="ledger" data-pc-last-command="" data-pc-fault-ok="" data-pc-exec-ok="" data-pc-cmd-ok="" data-pc-activation-ok="" data-pc-sentinel-ok="" aria-live="polite">idle</p>
+<h1>cc-wf-studio command + view fault matrix</h1>
+<p>Fault clicks: visible error + sentinel unchanged. Exec/render: sentinel intact. Views: data-view occupancy.</p>
+<p id="ledger" data-pc-last-command="" data-pc-last-view="" data-pc-fault-ok="" data-pc-render-ok="" data-pc-exec-ok="" data-pc-cmd-ok="" data-pc-activation-ok="" data-pc-sentinel-ok="" aria-live="polite">idle</p>
 <div id="ce2e-error" role="alert" data-pc-error-surface="1"></div>
 <pre id="sentinel" data-pc-sentinel="1">{"ok":true,"nonce":"ce2e-sentinel-v1","writes":0}</pre>
 <h2>Commands</h2>
@@ -19,6 +20,22 @@ body{font:14px system-ui;margin:16px;background:#111;color:#ddd}
   <button type="button" class="pc-btn" data-command="capability:vscode-extension" data-fault="1" data-testid="fault-capability:vscode-extension">fault:capability:vscode-extension</button>
   <button type="button" class="pc-btn" data-capability-exec="vscode-extension" data-testid="exec-capability:vscode-extension">exec:capability:vscode-extension</button>
   <button type="button" class="pc-btn" data-command="cc-wf-studio.openEditor" data-fault="1" data-testid="fault-cc-wf-studio.openEditor">fault:cc-wf-studio.openEditor</button>
+</div>
+<h2>Views (vscode_view pack)</h2>
+<div id="view-pack-grid">
+  <button type="button" class="pc-btn" data-view="capability:vscode-extension" data-view-activation="1" data-testid="view-activation-capability:vscode-extension">view-activation:capability:vscode-extension</button>
+</div>
+<div id="view-fault-grid">
+  <button type="button" class="pc-btn" data-view="capability:vscode-extension" data-fault="1" data-testid="view-fault-capability:vscode-extension">view-fault:capability:vscode-extension</button>
+</div>
+<div id="view-render-grid">
+  <button type="button" class="pc-btn" data-view="capability:vscode-extension" data-view-render="1" data-testid="view-render-capability:vscode-extension">view-render:capability:vscode-extension</button>
+</div>
+<div id="view-chrome">
+  <section class="pc-view" data-view-id="capability:vscode-extension" data-pc-chrome="matches-contract" hidden>
+    <h3>capability:vscode-extension</h3>
+    <div class="pc-view-body" data-pc-chrome="matches-contract">sandbox chrome for capability:vscode-extension</div>
+  </section>
 </div>
 <script>
 (function(){
@@ -47,9 +64,22 @@ body{font:14px system-ui;margin:16px;background:#111;color:#ddd}
     }
     return readSentinel() === original || readSentinel() === before;
   }
+  function revealView(view){
+    document.querySelectorAll('.pc-view').forEach(el => {
+      const on = el.getAttribute('data-view-id') === view;
+      el.hidden = !on;
+      if (on) {
+        el.setAttribute('data-pc-rendered','1');
+        el.setAttribute('data-pc-chrome','matches-contract');
+        const body = el.querySelector('.pc-view-body');
+        if (body) body.setAttribute('data-pc-chrome','matches-contract');
+      }
+    });
+  }
+  window.__harness = window.__harness || { posted: [] };
   document.getElementById('grid').addEventListener('click', (ev) => {
     const btn = ev.target.closest('[data-fault]');
-    if (!btn) return;
+    if (!btn || btn.closest('#view-fault-grid')) return;
     const cmd = btn.getAttribute('data-command') || btn.getAttribute('data-capability');
     if (!cmd) return;
     clearError();
@@ -77,6 +107,39 @@ body{font:14px system-ui;margin:16px;background:#111;color:#ddd}
     ledger.setAttribute('data-pc-last-action', 'exec:' + label);
     ledger.textContent = (intact ? 'PASS' : 'FAIL') + ' exec:' + label;
   }, true);
+  document.getElementById('view-fault-grid').addEventListener('click', (ev) => {
+    const btn = ev.target.closest('[data-view][data-fault]');
+    if (!btn) return;
+    const view = btn.getAttribute('data-view');
+    clearError();
+    const intact = attemptCorrupt();
+    showError('View error surface: ' + view);
+    revealView(view);
+    const ok = intact && err.classList.contains('is-visible');
+    ledger.setAttribute('data-pc-last-view', view);
+    ledger.setAttribute('data-pc-fault-ok', ok ? '1' : '0');
+    ledger.setAttribute('data-pc-sentinel-ok', intact ? '1' : '0');
+    ledger.setAttribute('data-pc-last-action', 'view-fault:' + view);
+    ledger.textContent = (ok ? 'PASS' : 'FAIL') + ' view-fault:' + view;
+    window.__harness.posted.push({ type: 'view-fault', view, ok, intact, at: Date.now() });
+  });
+  document.getElementById('view-render-grid').addEventListener('click', (ev) => {
+    const btn = ev.target.closest('[data-view-render]');
+    if (!btn) return;
+    const view = btn.getAttribute('data-view');
+    clearError();
+    const intact = attemptCorrupt();
+    revealView(view);
+    const section = document.querySelector('.pc-view[data-view-id="' + view + '"]');
+    const chromeOk = !!(section && section.getAttribute('data-pc-chrome') === 'matches-contract' && !section.hidden);
+    const ok = intact && chromeOk;
+    ledger.setAttribute('data-pc-last-view', view);
+    ledger.setAttribute('data-pc-render-ok', ok ? '1' : '0');
+    ledger.setAttribute('data-pc-sentinel-ok', intact ? '1' : '0');
+    ledger.setAttribute('data-pc-last-action', 'view-render:' + view);
+    ledger.textContent = (ok ? 'PASS' : 'FAIL') + ' view-render:' + view;
+    window.__harness.posted.push({ type: 'view-render', view, ok, intact, chromeOk, at: Date.now() });
+  });
 })();
 </script>
 </body></html>
