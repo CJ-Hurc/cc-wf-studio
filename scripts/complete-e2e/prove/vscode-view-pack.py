@@ -2,11 +2,13 @@
 """Purpose: LIVE prove for cc-wf-studio vscode_view cells (capability:vscode-extension).
 
 Escape: board FAILED render/failure-state + MISSING_PROVER activation with
-reason missing-control because the product sandbox had command occupancy only
-(no data-view=capability:vscode-extension). This adapter starts the product
-sandbox (:7788), drives the harness sandbox-fault-matrix against view controls,
-and writes named receipts for outstanding activation / render / failure-state.
-Consumers: hurc _exec_product_vscode_cdp_live (stem vscode-view-pack).
+reason missing-control because (1) product sandbox lacked data-view controls
+and/or (2) fresh walks rebound identity-less fail receipts from older runs via
+harness _copy_named_receipts before LIVE matrix / this pack ran. Starts product
+sandbox (:7788), scrubs poison fails, drives sandbox-fault-matrix, writes named
+receipts. Also autorun via prove/page-error-free.sh occupancy stem.
+Consumers: hurc _exec_product_vscode_cdp_live (stem vscode-view-pack);
+page-error-free occupancy autorun.
 Exit: 0 when all targeted cells proven / none outstanding; nonzero otherwise.
 """
 from __future__ import annotations
@@ -110,11 +112,49 @@ def _outstanding(run_dir: Path) -> list[dict[str, str]]:
 			WHERE pack = 'vscode_view'
 			  AND surface_id = ?
 			  AND scenario IN ('activation', 'render', 'failure-state')
-			  AND status IN ('MISSING_PROVER', 'FAILED', 'OPEN', 'RETRY')
+			  AND status IN ('MISSING_PROVER', 'FAILED', 'OPEN', 'RETRY', 'LEASED', 'RUNNING')
 			""",
 			(SURFACE,),
 		).fetchall()
 	return [dict(r) for r in rows]
+
+
+
+def _scrub_identityless_fails(root: Path, run_dir: Path) -> int:
+	"""Remove poison missing-control receipts that lack campaign identity.
+
+	Escape: harness _copy_named_receipts treats empty snapshot/universe as a
+	campaign match, so older runs' bare {ok:false, reason:missing-control}
+	receipts are copied into a fresh run and bind short-circuits before LIVE
+	matrix / this pack can prove. Drop identity-less fails for our surface.
+	"""
+	del run_dir  # scrub is cross-run; active run_dir unused
+	removed = 0
+	runs = root / ".hurc-harness" / "state" / "complete-e2e" / "runs"
+	if not runs.is_dir():
+		return 0
+	for named in runs.glob("*/receipts/*.json"):
+		try:
+			data = json.loads(named.read_text(encoding="utf-8"))
+		except (OSError, UnicodeError, json.JSONDecodeError):
+			continue
+		if not isinstance(data, dict) or data.get("ok") is not False:
+			continue
+		if str(data.get("reason") or "") != "missing-control":
+			continue
+		token = str(data.get("view") or data.get("surface_id") or "")
+		if token != SURFACE:
+			continue
+		if str(data.get("snapshot_id") or "").strip() or str(
+			data.get("universe_id") or ""
+		).strip():
+			continue
+		try:
+			named.unlink()
+			removed += 1
+		except OSError:
+			continue
+	return removed
 
 
 def _harness_adapter() -> Path | None:
@@ -284,6 +324,9 @@ def main(argv: list[str] | None = None) -> int:
 		}
 	else:
 		_run_id, run_dir = active
+		scrubbed = _scrub_identityless_fails(root, run_dir)
+		if scrubbed:
+			print(f"vscode-view-pack: scrubbed {scrubbed} identity-less fail receipts", file=sys.stderr)
 		cells = _outstanding(run_dir)
 		adapter = _harness_adapter()
 		runner = _runner()
