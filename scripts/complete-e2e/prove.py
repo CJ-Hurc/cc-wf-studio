@@ -15,11 +15,13 @@ cc-wf-studio complete-e2e prove wrapper (vitest / CLI / validate — no PHPUnit)
 options:
   -h, --help     show this help message and exit
   -V, --version  show version and exit
+  --run          run scripts/complete-e2e/run.py live product proofs
 
-With no options, runs scripts/complete-e2e/run.py live product proofs.
+With no options, prints usage and exits nonzero (cli-contract missing-arg /
+malformed-arg). Prefer `python3 scripts/complete-e2e/run.py` or `prove.py --run`.
 """
 
-_KNOWN = {"-h", "--help", "-V", "--version"}
+_KNOWN = {"-h", "--help", "-V", "--version", "--run"}
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -41,10 +43,19 @@ def main(argv: list[str] | None = None) -> int:
     if set(args) & {"-V", "--version"}:
         print("cc-wf-studio-prove 1.0.0")
         return 0
-    return subprocess.call(
-        [sys.executable, str(ROOT / "scripts/complete-e2e/run.py")],
-        cwd=str(ROOT),
+    if "--run" in args:
+        return subprocess.call(
+            [sys.executable, str(ROOT / "scripts/complete-e2e/run.py")],
+            cwd=str(ROOT),
+        )
+    # Bare argv = harness missing-arg / malformed-arg for .py CLIs.
+    print(
+        "prove.py: missing required argument\n"
+        "Usage: prove.py [options]\n"
+        "Try 'prove.py --help' for options.",
+        file=sys.stderr,
     )
+    return 2
 
 
 if __name__ == "__main__":
