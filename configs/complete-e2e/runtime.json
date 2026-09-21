@@ -1,6 +1,6 @@
 {
   "schema": "hurc-complete-e2e-runtime/v1",
-  "description": "Runtime adapter: emit KIND_PACKS-registered cli + nested packages/vscode contributes (no unknown-surface-kind capability:* stubs).",
+  "description": "Runtime adapter: KIND_PACKS cli + nested packages/vscode contributes; product sandbox_ui_url :7788 hosts command-fault-matrix for openEditor.",
   "adapters": [
     {
       "id": "cc-wf-studio-consumer-cli",
@@ -12,5 +12,6 @@
         "scripts/complete-e2e/list-surfaces.py"
       ]
     }
-  ]
+  ],
+  "sandbox_ui_url": "http://127.0.0.1:7788"
 }
